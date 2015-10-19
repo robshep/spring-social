@@ -114,7 +114,7 @@ public class OAuth2AuthenticationService<S> extends AbstractSocialAuthentication
 	}
 
 	protected String buildReturnToUrl(HttpServletRequest request) {
-		StringBuffer sb = request.getRequestURL();
+		StringBuffer sb = getProxyHeaderAwareRequestURL(request);
 		sb.append("?");
 		for (String name : getReturnToUrlParameters()) {
 			// Assume for simplicity that there is only one value
@@ -127,6 +127,40 @@ public class OAuth2AuthenticationService<S> extends AbstractSocialAuthentication
 		}
 		sb.setLength(sb.length() - 1); // strip trailing ? or &
 		return sb.toString();
+	}
+	
+	protected StringBuffer getProxyHeaderAwareRequestURL(HttpServletRequest request)
+	{
+		String host = request.getHeader("Host");
+		if(StringUtils.isEmpty(host)){
+			return request.getRequestURL();
+		}
+		StringBuffer sb = new StringBuffer();
+		String schemeHeader = request.getHeader("X-Forwarded-Proto");
+		String portHeader = request.getHeader("X-Forwarded-Port");
+		
+		String scheme = StringUtils.isEmpty(schemeHeader) ? "http" : schemeHeader;
+		String port = StringUtils.isEmpty(portHeader) ? "80" : portHeader;
+		
+		if(scheme.equals("http") && port.equals("80")){
+			port = "";
+		}
+		
+		if(scheme.equals("https") && port.equals("443")){
+			port = "";
+		}
+		
+		sb.append(scheme);
+		sb.append("://");
+		sb.append(host);
+		if(StringUtils.hasLength(port)){
+			sb.append(":");
+			sb.append(port);
+		}
+		
+		sb.append(request.getRequestURI());
+		
+		return sb;
 	}
 
 	private void setScope(HttpServletRequest request, OAuth2Parameters params) {
